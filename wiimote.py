@@ -38,7 +38,7 @@ arm.run_mode = 'forever'
 arm.regulation_mode = 'off'
 
 target_distance = 8
-top_speed = 360
+top_speed = 720
 
 left_motor.run = 1
 right_motor.run = 1
@@ -77,7 +77,7 @@ try:
 		
 		if move:
 			acc = state['acc']
-			tilt = (clamp(acc[1], 95, 145) - 120) / 50.0 # roughly between -0.5 and 0.5
+			tilt = (clamp(acc[1], 95, 145) - 120) / 25.0 # roughly between -0.5 and 0.5
 			turn = top_speed * tilt
 			turn = clamp(turn, -abs(top_speed), abs(top_speed))
 			left_motor.pulses_per_second_sp = int(top_speed - turn) * move
