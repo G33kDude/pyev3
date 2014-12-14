@@ -1,6 +1,7 @@
 
 # Drive your robot with a wii remote!
-# Left motor on port B, right motor on port C.
+# Left motor on port B, right motor on port C,
+# vertical arm on port D.
 # Requires the package 'python-cwiid'.
 # Make sure bluetooth is enabled in brickman
 # before trying to use this. Hold 2 to go forward
@@ -31,6 +32,11 @@ right_motor.reset()
 right_motor.run_mode = 'forever'
 right_motor.regulation_mode = 'on'
 
+arm = pyev3.Motor(pyev3.OUTPUT_D)
+arm.reset()
+arm.run_mode = 'forever'
+arm.regulation_mode = 'off'
+
 target_distance = 8
 top_speed = 360
 
@@ -58,6 +64,14 @@ try:
 				move = -1
 			else:
 				move = 0
+			if buttons & cwiid.BTN_LEFT:
+				arm.duty_cycle_sp = 100
+				arm.run = 1
+			elif buttons & cwiid.BTN_RIGHT:
+				arm.duty_cycle_sp = -100
+				arm.run = 1
+			else:
+				arm.run = 0
 			print top_speed, move
 			last_btn_state = buttons
 		
