@@ -58,17 +58,26 @@ class Motor(Device):
 		object.__setattr__(self, 'items', {
 			'duty_cycle': (int, 'r'),
 			'duty_cycle_sp': (int, 'rw'),
+			'encoder_mode': (str, 'rw'),
+			'encoder_modes': (str.split, 'r'),
+			'emergency_stop': (str, 'rw', 'estop'),
+			'debug_log': (str, 'r', 'log'),
+			'polarity_mode': (str, 'rw'),
+			'polarity_modes': (str.split, 'r'),
 			'port_name': (str, 'r'),
 			'position': (int, 'rw'),
 			'position_mode': (str, 'rw'),
+			'position_modes': (str.split, 'r'),
 			'position_sp': (int, 'rw'),
 			'pulses_per_second': (int, 'r'),
 			'pulses_per_second_sp': (int, 'rw'),
 			'ramp_down_sp': (int, 'rw'),
 			'ramp_up_sp': (int, 'rw'),
 			'regulation_mode': (str, 'rw'),
+			'regulation_modes': (str.split, 'r'),
 			'run': (int, 'rw'),
 			'run_mode': (str, 'rw'),
+			'run_modes': (str.split, 'r'),
 			'speed_regulation_p': (int, 'rw', 'speed_regulation_P'),
 			'speed_regulation_i': (int, 'rw', 'speed_regulation_I'),
 			'speed_regulation_d': (int, 'rw', 'speed_regulation_D'),
@@ -83,19 +92,6 @@ class Motor(Device):
 	def reset(self):
 		with open(os.path.join(self.path, 'reset'), 'w') as f:
 			f.write('1')
-
-class LED(Device):
-	def __init__(self, Device, which=0):
-		if not Device:
-			Device = '*'
-		
-		super(LED, self).__init__(which, sys_name=Device)
-		
-		object.__setattr__(self, 'items', {
-			'max_brightness': (int, 'r'),
-			'brightness': (int, 'rw'),
-			'trigger': (str, 'rw')
-		})
 
 class Sensor(Device):
 	def __init__(self, port=None, type=None, which=0):
@@ -132,3 +128,16 @@ class Sensor(Device):
 			raise IndexError('Unkown value index: {0}'.format(index))
 		with open(path, 'r') as f:
 			return float(f.read())
+
+class LED(Device):
+	def __init__(self, Device, which=0):
+		if not Device:
+			Device = '*'
+		
+		super(LED, self).__init__(which, sys_name=Device)
+		
+		object.__setattr__(self, 'items', {
+			'max_brightness': (int, 'r'),
+			'brightness': (int, 'rw'),
+			'trigger': (str, 'rw')
+		})
