@@ -14,7 +14,7 @@ OUTPUT_C = "outC"
 OUTPUT_D = "outD"
 
 class Device(object):
-	def __init__(self, which=0, **kwargs):
+	def __init__(self, attributes, which=0, **kwargs):
 		devices = list(pyudev.Context().list_devices(**kwargs))
 		if not devices:
 			raise IndexError('No devices found')
@@ -22,122 +22,130 @@ class Device(object):
 			device = devices[which]
 		except IndexError:
 			raise IndexError('Device index out of range')
+		
 		object.__setattr__(self, 'path', devices[which].sys_path)
-		object.__setattr__(self, 'items', {})
+		object.__setattr__(self, 'attributes', attributes)
+		object.__setattr__(self, 'files', {})
+		
+		# Open attribute files
+		for attribute_name in self.attributes:
+			attribute = self.attributes[attribute_name]
+			try:
+				file_name = attribute[2]
+			except IndexError:
+				file_name = attribute_name
+			file_path = os.path.join(self.path, file_name)
+			self.files[attribute_name] = open(file_path, attribute[1])
 	
 	def __getattr__(self, attr):
-		if attr not in self.items:
+		if attr not in self.attributes:
 			raise AttributeError('Unkown attribute: {0}'.format(attr))
-		file = attr if len(self.items[attr]) < 3 else self.items[attr][2]
-		with open(os.path.join(self.path, file), 'r') as f:
-			value = f.read().strip()
-		return self.items[attr][0](value)
+		if attr not in self.files:
+			raise AttributeError('Attribute file not open: {0}'.format(attr))
+		
+		attr_file = self.files[attr]
+		attr_file.seek(0)
+		value = attr_file.read().strip()
+		return self.attributes[attr][0](value)
 	
 	def __setattr__(self, attr, value):
-		if attr not in self.items:
+		if attr not in self.attributes:
 			raise AttributeError('Unkown attribute: {0}'.format(attr))
-		if 'w' not in self.items[attr][1]:
-			raise TypeError('Attribute is read only: {0}'.format(attr))
-		with open(os.path.join(self.path, attr), 'w') as f:
-			f.write(str(value))
+		if attr not in self.files:
+			raise AttributeError('Attribute file not open: {0}'.format(attr))
+		# if 'w' not in self.items[attr][1]:
+			# raise TypeError('Attribute is read only: {0}'.format(attr))
+		self.files[attr].write(str(value))
+		self.files[attr].flush()
 
 class Motor(Device):
 	def __init__(self, port=None, type=None, which=0):
-		if not type:
-			type = '*'
-		if not port:
-			port = '*'
+		attributes = {
+			'duty_cycle': [int, 'r'],
+			'duty_cycle_sp': [int, 'r+'],
+			'port_name': [str, 'r'],
+			'position': [int, 'r+'],
+			'position_mode': [str, 'r+'],
+			'position_sp': [int, 'r+'],
+			'pulses_per_second': [int, 'r'],
+			'pulses_per_second_sp': [int, 'r+'],
+			'ramp_down_sp': [int, 'r+'],
+			'ramp_up_sp': [int, 'r+'],
+			'regulation_mode': [str, 'r+'],
+			'run': [int, 'r+'],
+			'run_mode': [str, 'r+'],
+			'speed_regulation_p': [int, 'r+', 'speed_regulation_P'],
+			'speed_regulation_i': [int, 'r+', 'speed_regulation_I'],
+			'speed_regulation_d': [int, 'r+', 'speed_regulation_D'],
+			'speed_regulation_k': [int, 'r+', 'speed_regulation_K'],
+			'state': [str, 'r'],
+			'stop_mode': [str, 'r+'],
+			'stop_modes': [str.split, 'r'],
+			'time_sp': [int, 'r+'],
+			'type': [str, 'r']
+		}
 		
 		super(Motor, self).__init__(
+			attributes,
 			which,
 			subsystem='tacho-motor',
-			PORT=port,
-			TYPE=type
+			PORT=port or '*',
+			TYPE=type or '*'
 		)
 		
-		object.__setattr__(self, 'items', {
-			'duty_cycle': (int, 'r'),
-			'duty_cycle_sp': (int, 'rw'),
-			'encoder_mode': (str, 'rw'),
-			'encoder_modes': (str.split, 'r'),
-			'emergency_stop': (str, 'rw', 'estop'),
-			'debug_log': (str, 'r', 'log'),
-			'polarity_mode': (str, 'rw'),
-			'polarity_modes': (str.split, 'r'),
-			'port_name': (str, 'r'),
-			'position': (int, 'rw'),
-			'position_mode': (str, 'rw'),
-			'position_modes': (str.split, 'r'),
-			'position_sp': (int, 'rw'),
-			'pulses_per_second': (int, 'r'),
-			'pulses_per_second_sp': (int, 'rw'),
-			'ramp_down_sp': (int, 'rw'),
-			'ramp_up_sp': (int, 'rw'),
-			'regulation_mode': (str, 'rw'),
-			'regulation_modes': (str.split, 'r'),
-			'run': (int, 'rw'),
-			'run_mode': (str, 'rw'),
-			'run_modes': (str.split, 'r'),
-			'speed_regulation_p': (int, 'rw', 'speed_regulation_P'),
-			'speed_regulation_i': (int, 'rw', 'speed_regulation_I'),
-			'speed_regulation_d': (int, 'rw', 'speed_regulation_D'),
-			'speed_regulation_k': (int, 'rw', 'speed_regulation_K'),
-			'state': (str, 'r'),
-			'stop_mode': (str, 'rw'),
-			'stop_modes': (str.split, 'r'),
-			'time_sp': (int, 'rw'),
-			'type': (str, 'r')
-		})
+		self.files['reset'] = open(os.path.join(self.path, 'reset'), 'w')
 	
 	def reset(self):
-		with open(os.path.join(self.path, 'reset'), 'w') as f:
-			f.write('1')
+		self.files['reset'].write('1')
+
+class LED(Device):
+	def __init__(self, device, which=0):
+		attributes = {
+			'max_brightness': [int, 'r'],
+			'brightness': [int, 'r+'],
+			'trigger': [str, 'r+']
+		}
+		
+		super(LED, self).__init__(
+			attributes,
+			which,
+			sys_name=device or '*'
+		)
 
 class Sensor(Device):
 	def __init__(self, port=None, type=None, which=0):
-		if not port:
-			port = '*'
-		if not type:
-			type = '*'
+		attributes = {
+			'port_name': [str, 'r'],
+			'num_values': [int, 'r'],
+			'type_name': [str, 'r', 'name'],
+			'mode': [str, 'r+'],
+			'modes': [str.split, 'r']
+		}
 		
 		super(Sensor, self).__init__(
+			attributes,
 			which,
 			subsystem='msensor',
-			PORT=port,
-			TYPE=type
+			PORT=port or '*',
+			NAME=type or '*'
 		)
 		
-		object.__setattr__(self, 'items', {
-			'port_name': (str, 'r'),
-			'num_values': (int, 'r'),
-			'type_name': (str, 'r', 'name'),
-			'mode': (str, 'rw'),
-			'modes': (str.split, 'r')
-		})
+		for i in range(8):
+			file_name = 'value' + str(i)
+			self.files[file_name] = open(os.path.join(self.path, file_name), 'r')
 	
 	def get_value(self, index):
-		path = os.path.join(self.path, 'value{0}'.format(index))
-		if not os.path.exists(path):
+		file_name = 'value' + str(index)
+		if file_name not in self.files:
 			raise IndexError('Unkown value index: {0}'.format(index))
-		with open(path, 'r') as f:
-			return int(f.read())
+		value_file = self.files[file_name]
+		value_file.seek(0)
+		return int(value_file.read())
 	
 	def get_float_value(self, index):
-		path = os.path.join(self.path, 'value{0}'.format(index))
-		if not os.path.exists(path):
+		file_name = 'value' + str(index)
+		if file_name not in self.files:
 			raise IndexError('Unkown value index: {0}'.format(index))
-		with open(path, 'r') as f:
-			return float(f.read())
-
-class LED(Device):
-	def __init__(self, Device, which=0):
-		if not Device:
-			Device = '*'
-		
-		super(LED, self).__init__(which, sys_name=Device)
-		
-		object.__setattr__(self, 'items', {
-			'max_brightness': (int, 'r'),
-			'brightness': (int, 'rw'),
-			'trigger': (str, 'rw')
-		})
+		value_file = self.files[file_name]
+		value_file.seek(0)
+		return float(value_file.read())
