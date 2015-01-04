@@ -20,19 +20,20 @@ class Tower:
 		self.file = open(path, 'r+', 0)
 		self.dupe_bit_toggle = True
 	
-	def send(self, hex, read=True):
+	def send(self, hex, read=True, pad=0):
+		"""Send an RCX opcode sequence through the IR tower"""
 		buffer = '\x55\xff\x00' # header
 		
 		sum = 0
 		for i in range(0, len(hex), 2):
 			byte = int(hex[i:i+2], 16)
-			if i == 0:
-				byte = self.flop_dupe_bit(byte)
+			if i == 0: # index of the opcode in a sequence
+				byte = self.flip_dupe_bit(byte)
 			buffer += self.check(byte)
 			sum += byte
 		buffer += self.check(sum % 0x100) # "checksum"
 		
-		self.write(buffer)
+		self.write(buffer + '\x00'*pad)
 		
 		if read:
 			try:
@@ -41,16 +42,20 @@ class Tower:
 				return None
 	
 	def check(self, byte):
+		"""Return the byte and its bitwise inversion as characters"""
 		return chr(byte) + chr(byte^0xFF)
 	
-	def flop_dupe_bit(self, byte):
+	def flip_dupe_bit(self, byte):
+		"""Flip the opcode dupe bit every other call"""
 		self.dupe_bit_toggle = not self.dupe_bit_toggle
 		return byte^8 if self.dupe_bit_toggle else byte
 	
 	def write(self, value):
+		"""Write to the IR tower"""
 		self.file.write(value)
 	
 	def read(self):
+		"""Read from the IR tower"""
 		return self.file.read()
 
 tower = Tower('/dev/usb/legousbtower0')
