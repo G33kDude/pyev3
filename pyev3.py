@@ -63,17 +63,26 @@ class Motor(Device):
 		attributes = {
 			'duty_cycle': [int, 'r'],
 			'duty_cycle_sp': [int, 'r+'],
+			'encoder_mode': [str, 'r+'],
+			'encoder_modes': [str.split, 'r'],
+			'estop': [str, 'r+'],
+			'debug_log': [str, 'r', 'log'],
+			'polarity_mode': [str, 'r+'],
+			'polarity_modes': [str.split, 'r'],
 			'port_name': [str, 'r'],
 			'position': [int, 'r+'],
 			'position_mode': [str, 'r+'],
+			'position_modes': [str.split, 'r'],
 			'position_sp': [int, 'r+'],
 			'pulses_per_second': [int, 'r'],
 			'pulses_per_second_sp': [int, 'r+'],
 			'ramp_down_sp': [int, 'r+'],
 			'ramp_up_sp': [int, 'r+'],
 			'regulation_mode': [str, 'r+'],
+			'regulation_modes': [str.split, 'r'],
 			'run': [int, 'r+'],
 			'run_mode': [str, 'r+'],
+			'run_modes': [str.split, 'r'],
 			'speed_regulation_p': [int, 'r+', 'speed_regulation_P'],
 			'speed_regulation_i': [int, 'r+', 'speed_regulation_I'],
 			'speed_regulation_d': [int, 'r+', 'speed_regulation_D'],
@@ -89,8 +98,8 @@ class Motor(Device):
 			attributes,
 			which,
 			subsystem='tacho-motor',
-			PORT=port or '*',
-			TYPE=type or '*'
+			LEGO_PORT_NAME=port or '*' #,
+			# LEGO_DRIVER_NAME=type or '*' # Doesn't work with the current driver version
 		)
 		
 		self.files['reset'] = open(os.path.join(self.path, 'reset'), 'w')
@@ -115,19 +124,23 @@ class LED(Device):
 class Sensor(Device):
 	def __init__(self, port=None, type=None, which=0):
 		attributes = {
-			'port_name': [str, 'r'],
-			'num_values': [int, 'r'],
-			'type_name': [str, 'r', 'name'],
+			'decimals': [int, 'r'],
 			'mode': [str, 'r+'],
-			'modes': [str.split, 'r']
+			'modes': [str.split, 'r'],
+			'command': [str, 'w'],
+			'commands': [str.split, 'r'],
+			'num_values': [int, 'r'],
+			'port_name': [str, 'r'],
+			'units': [str, 'r'],
+			'driver_name': [str, 'r']
 		}
 		
 		super(Sensor, self).__init__(
 			attributes,
 			which,
-			subsystem='msensor',
-			PORT=port or '*',
-			NAME=type or '*'
+			subsystem='lego-sensor',
+			LEGO_PORT_NAME=port or '*',
+			LEGO_DRIVER_NAME=type or '*'
 		)
 		
 		for i in range(8):
@@ -143,9 +156,4 @@ class Sensor(Device):
 		return int(value_file.read())
 	
 	def get_float_value(self, index):
-		file_name = 'value' + str(index)
-		if file_name not in self.files:
-			raise IndexError('Unkown value index: {0}'.format(index))
-		value_file = self.files[file_name]
-		value_file.seek(0)
-		return float(value_file.read())
+		return self.get_value(index) / float(10 ** self.decimals)
