@@ -25,27 +25,35 @@ class Motors(object):
 
 # Mouse abstraction
 class Mouse(object):
-	def __init__(self, infile_path="/dev/input/event1"):
+	def __init__(self, infile_path="", which=0):
+		self.path = infile_path or self.find_mouse(which)
+		self.in_file = open(self.path, "rb")
 		self.FORMAT = 'llHHi'
 		self.EVENT_SIZE = struct.calcsize(self.FORMAT)
-		self.in_file = open(infile_path, "rb")
 		self.xpos = 0
 		self.ypos = 0
+	
+	def find_mouse(self, which=0):
+		context = pyudev.Context()
+		devices = context.list_devices(subsystem='input', ID_INPUT_MOUSE=True)
+		mice = [dev for dev in devices if dev.sys_name.startswith('event')]
+		try:
+			mouse = mice[which]
+		except IndexError:
+			raise IndexError("Index {} out of range: Only {} mice found".format(which, len(mice)))
+		return mouse.device_node
 	
 	def get_event(self):
 		event = self.in_file.read(self.EVENT_SIZE)
 		if event:
 			tv_sec, tv_usec, type, code, value = struct.unpack(self.FORMAT, event)
 			if type == 2:
-				if code == 1:
-					self.ypos += value
-				else:
+				if code == 0:
 					self.xpos += value
+				elif code == 1:
+					self.ypos += value
 			return True
 		return False
-	
-	def __del__(self):
-		self.in_file.close()
 
 # Helper function for threading
 def process_mouse(q, mouse):
@@ -65,6 +73,7 @@ motors.run = 1
 
 # Set up mouse
 mouse = Mouse()
+print "mouse found at {}".format(mouse.path)
 
 # Handle mouse in a separate thread because it uses blocking file IO
 t = threading.Thread(target=process_mouse, args = ("", mouse))
